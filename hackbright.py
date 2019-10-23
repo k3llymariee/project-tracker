@@ -40,8 +40,11 @@ def get_student_by_github(github):
 
     row = db_cursor.fetchone()
 
-    print("Student: {} {}\nGitHub account: {}".format(row[0], row[1], row[2]))
-
+    # fetchone will return None if no records returned
+    if row:
+        print("Student: {} {}\nGitHub account: {}".format(row[0], row[1], row[2]))
+    else:
+        print("No record of that student")
 
 def make_new_student(first_name, last_name, github):
     """Add a new student and print confirmation.
@@ -141,6 +144,66 @@ def assign_grade(github, title, grade):
 
     print(f'Successfully added {github}\'s grade of {grade} for {title}')
 
+def add_project(title, description, max_grade):
+    """ Create a new project and print a confirmation """
+
+    QUERY = """
+        INSERT INTO projects (title, description, max_grade)
+            VALUES (:title, :decription, :max_grade)      
+        """
+
+    db.session.execute(QUERY, {'title': title,
+                                'decription': description,
+                                'max_grade': max_grade})
+
+    db.session.commit()
+
+    print(f'Successfully added {title} to the projects tables')
+
+def get_all_grades(first_name, last_name):
+    """ Print all grades for a student given their Github name
+
+    Example:
+        >>> get_all_grades('Jane', 'Hacker')
+        Grades for Jane Hacker:
+        **********
+        Project Title: Markov
+        Grade: 10
+        **********
+        Project Title: Blockly
+        Grade: 2
+        **********
+    """
+
+    QUERY = """
+        SELECT 
+            project_title, grade
+        FROM grades
+        JOIN students 
+            ON students.github = grades.student_github
+        WHERE students.first_name = :first_name
+            AND students.last_name = :last_name
+        """
+
+    cursor = db.session.execute(QUERY, 
+                                {'first_name': first_name, 
+                                'last_name': last_name})
+
+    results = cursor.fetchall()
+
+    print(f"Grades for {first_name} {last_name}:")
+    print('*' * 10)
+
+    if len(results) == 0:
+        print("No grades for this student")
+    else:
+        for result in results:
+            project_title, grade = result
+            print("Project Title:", project_title)
+            print("Grade:", grade)
+            print('*' * 10)
+
+
 def handle_input():
     """Main loop.
 
@@ -164,6 +227,16 @@ def handle_input():
             first_name, last_name, github = args  # unpack! # why isnt command part of args
             make_new_student(first_name, last_name, github)
 
+        elif command == "new_project":
+            max_grade = args[-1]
+            title = args[0]  # we assume titles have no spaces
+            description = ' '.join(args[1:-1])
+            add_project(title, description, max_grade)
+
+        elif command == "get_grades":
+            first_name, last_name = args
+            get_all_grades(first_name, last_name)
+
         else:
             if command != "quit":
                 print("Invalid Entry. Try again.")
@@ -172,7 +245,7 @@ def handle_input():
 if __name__ == "__main__":
     connect_to_db(app)
 
-    # handle_input()
+    handle_input()
 
     # To be tidy, we close our database connection -- though,
     # since this is where our program ends, we'd quit anyway.
